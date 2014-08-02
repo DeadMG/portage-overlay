@@ -1,0 +1,7 @@
+<?xml version="1.0" ?>
+<layman>
+    <overlay
+        type="git" src="git://github.com/TheCatPlusPlus/portage-overlay.git"
+        name="catpp-gentoo"
+    />
+</layman>
