@@ -34,23 +34,43 @@ def sub_variables(path, variables):
         return body
 
 def download_file(uri):
-    info     = urllib.parse.urlparse(uri)
-    filename = os.path.basename(info.path)
-    path     = os.path.join('.tmp', filename)
+    print('\t\t\t* HEAD', uri)
+
+    try:
+        response = requests.head(uri, verify = True)
+    except Exception as e:
+        print('\t\t\t! Failed:', e)
+        return None
+
+    total_bytes    = int(response.headers.get('content-length', None))
+    total_bytes_mb = total_bytes / (1024 * 1024) if total_bytes else None
+    disposition    = response.headers.get('content-disposition', None)
+
+    print('\t\t\t\t* Content-Length:', total_bytes, '({0.2f}MB)'.format(total_bytes_mb) if total_bytes_mb else '')
+    print('\t\t\t\t* Content-Disposition:', disposition)
+
+    if disposition is None or 'filename=' not in disposition:
+        info     = urllib.parse.urlparse(uri)
+        filename = os.path.basename(info.path)
+        print('\t\t\t\t* Filename from path:', filename)
+    else:
+        filename = disposition.partition('filename=')[2]
+        filename = filename[1:-1] if filename[0] in ('"', "'") else filename
+        print('\t\t\t\t* Filename from headers:', filename)
+
+    path = os.path.join('.tmp', filename)
 
     if os.path.exists(path):
         return filename, path
 
-    print('\t\t\t* Downloading', uri)
+    print('\t\t\t* GET', uri)
     try:
         response = requests.get(uri, stream = True, verify = True)
     except Exception as e:
         print('\t\t\t! Failed:', e)
         return None
 
-    total_bytes = int(response.headers.get('content-length', None))
-    got_bytes   = 0
-
+    got_bytes = 0
     try:
         with open(path, 'wb') as fp:
             for chunk in response.iter_content(4096):
@@ -59,7 +79,6 @@ def download_file(uri):
 
                 got_bytes_mb = got_bytes / (1024 * 1024)
                 if total_bytes is not None:
-                    total_bytes_mb = total_bytes / (1024 * 1024)
                     progress = int((got_bytes / total_bytes) * 100)
                     print('\t\t\t* {0:.2f}MB/{1:.2f}MB [{2}%]                '.format(got_bytes_mb, total_bytes_mb, progress), end = '\r')
                 else:
@@ -157,7 +176,11 @@ def process_package(pkg):
         if '://' not in uri:
             continue
 
-        filename, path = download_file(uri)
+        result = download_file(uri)
+        if result is None:
+            continue
+
+        filename, path = result
         entry = file_info(path)
 
         print('\t\tDIST', filename, 'size:', entry['size'], 'SHA1:', entry['sha1'])
