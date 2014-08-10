@@ -1,0 +1,4 @@
+#!/bin/bash
+package=$1
+mkdir -p ${package}
+cp -r /usr/portage/${package}/* ./${package}/
